@@ -1,8 +1,10 @@
 import paho.mqtt.publish as publish
 import json
 import hostname
+import time
 
 class Commands:
+    """Execute the commands requested by Google Home Graph."""
 
     def __init__(self, data):
         self.data_conector = data
@@ -85,6 +87,7 @@ class Commands:
             else:
                 return "cancelTooLate"
 
+        time.sleep(1)
         return ""
 
     def BrightnessAbsolute(self):
@@ -270,7 +273,6 @@ class Commands:
             else:
                 self.saveAndSend('fanSpeedPercent', 'currentFanSpeedPercent')
             
-
     def SetFanSpeedRelativeSpeed(self):
         # maxSpeedReached
         # minSpeedReached

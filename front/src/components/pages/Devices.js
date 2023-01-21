@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { ToastsContainer, ToastsStore } from "react-toasts";
 import Light from "../devices/Light";
 import Outlet from "../devices/Outlet";
 import AcUnit from "../devices/AcUnit";
@@ -42,9 +43,14 @@ class Devices extends React.Component {
     super(props);
     this.state = {
       data: {},
-      devices: [],
+      ordered_devices: [],
+      processed_devices: [],
+      order_by: "az",
+      search_phrase: "",
     };
     this.loadData = this.loadData.bind(this);
+    this.orderBy = this.orderBy.bind(this);
+    this.search = this.search.bind(this);
   }
 
   componentDidMount() {
@@ -60,10 +66,12 @@ class Devices extends React.Component {
           var data = JSON.parse(http.responseText);
           this.setState({
             data: data,
-            devices: data.devices,
           });
+          this.orderBy(this.state.order_by)
+          this.search(this.state.search_phrase)
         } else {
           console.error(http.statusText);
+          ToastsStore.error("Something went wrong");
         }
       }
     }.bind(this);
@@ -72,8 +80,42 @@ class Devices extends React.Component {
     http.send();
   }
 
+  orderBy(by) {
+    var devices_list = this.state.data.devices;
+    devices_list.sort(function(a, b){
+      if(a.name.name.toLowerCase() < b.name.name.toLowerCase()) { return -1; }
+      if(a.name.name.toLowerCase() > b.name.name.toLowerCase()) { return 1; }
+      return 0;
+    })
+    
+    this.setState({
+      ordered_devices: devices_list,
+    })
+  }
+
+  search(search_phrase) {
+    this.setState({search_phrase})
+    if (search_phrase === "") {
+      this.setState({
+        processed_devices: this.state.ordered_devices,
+      })
+    } else {
+      var filtered_devices = []
+      this.state.ordered_devices.forEach(device => {
+        if (device.name.name.toLowerCase().includes(search_phrase)) {
+          if (!filtered_devices.includes(device)) {
+            filtered_devices.push(device)
+          }
+        }
+      })
+      this.setState({
+        processed_devices: filtered_devices,
+      })
+    }
+  }
+
   render() {
-    const devices = this.state.devices.map((device) => {
+    const devices = this.state.processed_devices.map((device) => {
       if (device.type === "action.devices.types.LIGHT")
         return (
           <Light
@@ -353,7 +395,21 @@ class Devices extends React.Component {
             reload={this.loadData}
           />
         );
-      else if (device.type === "action.devices.types.SCENE")
+      else if (device.type !== "action.devices.types.SCENE")
+        return (
+          <Global
+            key={device.id}
+            device={device}
+            status={this.state.data.status[device.id]}
+            reload={this.loadData}
+          />
+        );
+      else
+        return (<></>)
+    });
+
+    const scenes = this.state.processed_devices.map((device) => {
+      if (device.type === "action.devices.types.SCENE")
         return (
           <Scene
             key={device.id}
@@ -363,29 +419,44 @@ class Devices extends React.Component {
           />
         );
       else
-        return (
-          <Global
-            key={device.id}
-            device={device}
-            status={this.state.data.status[device.id]}
-            reload={this.loadData}
-          />
-        );
+        return (<></>)
     });
 
     return (
       <div>
-        <div className="page_title_container">
-          <h2>Devices and scences</h2>
+        <div className="page_search_containter">
+          <input
+            type="text"
+            className="page_search_bar"
+            placeholder="Type to search"
+            id="search_bar"
+            value={this.state.search_phrase}
+            onChange={(event) => {
+              this.search(event.target.value.toLowerCase());
+            }}
+          />
+          <div
+            className="page_search_x"
+            onClick={
+              () => {
+                this.setState({search_phrase: ""});
+                this.orderBy(this.state.order_by);
+              }
+            }
+          >
+            <span>X</span>
+          </div>
         </div>
 
         <div className="page_cards_container">{devices}</div>
+        <div className="page_cards_container">{scenes}</div>
 
         <div className="page_buttons_containter">
           <Link to="/devices/editor/">
             <button type="button">New</button>
           </Link>
         </div>
+        <ToastsContainer store={ToastsStore} />
       </div>
     );
   }
